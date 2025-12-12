@@ -29,6 +29,7 @@ async def send_safe(sender, text, MAX_LEN):
     current = ""
     lines = text.split("\n")
     for line in lines:
+        line = re.sub(r'^(#{4,})', '###', line) #trying ### because #### formating does not work on discord
         words = line.split(" ")
         for w in words:
             if looks_like_link(w) and len(w) > MAX_LEN:
