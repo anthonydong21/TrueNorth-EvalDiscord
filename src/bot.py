@@ -3,7 +3,7 @@ import random
 import discord
 #import google.generativeai as genai
 from dotenv import load_dotenv
-import requests
+import aiohttp #trying this instead of requests
 import re
 API_HOST = os.getenv("API_HOST")
 API_URL = f"{API_HOST}/query"
@@ -29,7 +29,6 @@ async def send_safe(sender, text, MAX_LEN):
     current = ""
     lines = text.split("\n")
     for line in lines:
-        line = re.sub(r'^(#{4,})', '###', line) #trying ### because #### formating does not work on discord
         words = line.split(" ")
         for w in words:
             if looks_like_link(w) and len(w) > MAX_LEN:
@@ -66,10 +65,23 @@ intents = discord.Intents.default()
 intents.message_content = True  
 intents.members = True
 
+async def query_truenorth(user_id: str, question: str):
+    payload = {"snowflake": user_id, "question": question}
+
+    timeout = aiohttp.ClientTimeout(total=60)
+    try:
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(API_URL, json=payload) as resp:
+                if resp.status != 200:
+                    print(f"TrueNorth API error: {resp.status}")
+                    return None
+                return await resp.json()
+    except Exception as e:
+        print(f"Cannot contact TrueNorth: {e}")
+        return None
+        
 #removes default !help
 bot = commands.Bot(command_prefix='!', intents=intents, help_command=None)
-
-
 
 @bot.event
 async def on_ready():
@@ -81,32 +93,6 @@ async def on_member_join(member):
     await member.dm_channel.send(
         f'Hello {member.name}, welcome to myTrueNorth.app, if you have any questions, refer to the info text channel!'
     )
-
-#truenorth backend test
-@bot.command(name='askTrueNorth')
-async def ask_truenorth(ctx, *, question):
-    """Ask a question to TrueNorth"""
-    await ctx.send("Thinking...")
-
-    payload = {"question": question, "chat_history": []}
-
-    try:
-        response = requests.post(API_URL, json=payload)
-        response.raise_for_status()
-        data = response.json()
-        answer = data.get("response", "No response found")
-        citations = data.get("citations", [])
-
-        full_message = f"**Q:** {question}\n**A:** {answer}"
-        await send_safe(ctx, full_message, MAX_LEN)
-        await citationCreator(ctx, citations)
-        await ctx.message.add_reaction('✅')
-
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Error contacting backend: {e}")
-        await ctx.send("Sorry, I could not reach the TrueNorth API.")
-
-
 #help
 @bot.command(name='help')
 async def helpme(ctx):
@@ -117,51 +103,57 @@ async def helpme(ctx):
 async def raise_exception(ctx):
     raise discord.DiscordException
 
+@bot.command(name='askTrueNorth')
+async def ask_truenorth(ctx, *, question):
+    await ctx.send("Thinking...")
+    user_id = str(ctx.author.id)
+    data = await query_truenorth(user_id, question)
+    if not data:
+        await ctx.send("Sorry, I could not reach the TrueNorth API.")
+        return
+
+    answer = data.get("response", "No response found")
+    citations = data.get("citations", [])
+    full_message = f"**Q:** {question}\n**A:** {answer}"
+    await send_safe(ctx, full_message, MAX_LEN)
+    await citationCreator(ctx, citations)
+    await ctx.message.add_reaction('✅')
+
+
 #GEMINI ADDITION
 @bot.command(name='geminiquestion')
 async def ask_gemini(ctx, *, question):
-    """Ask question to TrueNorth (rerouted from Gemini)"""
     await ctx.send("Thinking with TrueNorth...")
+    user_id = str(ctx.author.id)
+    data = await query_truenorth(user_id, question)
+    if not data:
+        await ctx.send("Sorry, I could not reach the TrueNorth API.")
+        return
 
-    payload = {"question": question, "chat_history": []}
-
-    try:
-        response = requests.post(API_URL, json=payload)
-        response.raise_for_status()
-        data = response.json()
-        answer = data.get("response", "No response found")
-        citations = data.get("citations", [])
-
-        full_message = f"**Q:** {question}\n**A:** {answer}"
-        await send_safe(ctx, full_message, MAX_LEN)
-        await citationCreator(ctx, citations)
-        await ctx.message.add_reaction('✅')
-
-    except requests.exceptions.RequestException as e:
-        print(f"Error contacting TrueNorth backend: {e}")
-        await ctx.send("Sorry, TrueNorth is not responding right now.")
+    answer = data.get("response", "No response found")
+    citations = data.get("citations", [])
+    full_message = f"**Q:** {question}\n**A:** {answer}"
+    await send_safe(ctx, full_message, MAX_LEN)
+    await citationCreator(ctx, citations)
+    await ctx.message.add_reaction('✅')
 
         
 @bot.tree.command(name="geminiquestion", description="Ask TrueNorth anything")
 async def ask_slash(interaction: discord.Interaction, question: str):
-    """Slash command rerouted to TrueNorth"""
     await interaction.response.defer()
-    payload = {"question": question, "chat_history": []}
+    await interaction.followup.send("Thinking...")
 
-    try:
-        response = requests.post(API_URL, json=payload)
-        response.raise_for_status()
-        data = response.json()
-        answer = data.get("response", "No response found")
-        citations = data.get("citations", [])
-
-        full_message = f"**Q:** {question}\n**A:** {answer}"
-        await send_safe(interaction.followup, full_message, MAX_LEN)
-        await citationCreator(interaction.followup, citations)
-
-    except requests.exceptions.RequestException as e:
-        print(f"Error contacting TrueNorth backend: {e}")
+    user_id = str(interaction.user.id)
+    data = await query_truenorth(user_id, question)
+    if not data:
         await interaction.followup.send("Sorry, TrueNorth is not responding right now.")
+        return
+
+    answer = data.get("response", "No response found")
+    citations = data.get("citations", [])
+    full_message = f"**Q:** {question}\n**A:** {answer}"
+    await send_safe(interaction.followup, full_message, MAX_LEN)
+    await citationCreator(interaction.followup, citations)
 
 
 @bot.event
