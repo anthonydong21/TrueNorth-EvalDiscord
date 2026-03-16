@@ -14,7 +14,7 @@ ENV LOG_TO_FILE=true
 
 WORKDIR /app
 
-COPY pyproject.toml poetry.lock ./
+COPY pyproject.toml ./
 
 COPY . .
 
