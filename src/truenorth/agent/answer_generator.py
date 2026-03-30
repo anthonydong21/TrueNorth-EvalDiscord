@@ -72,7 +72,7 @@ The available sources above provide the necessary background knowledge.
 
 
 # ------------------------ Answer Generator Node ------------------------
-def answer_generator(state: ChatState):
+def answer_generator(state, user_message_text: str  ):
     """
     Generates an answer based on the retrieved documents and user question.
     """
@@ -134,10 +134,13 @@ def answer_generator(state: ChatState):
 
     # Add message to history
         
-    if state.current_user_message: #only save if a message actually exists
-        state.add_user_message(state.current_user_message)
-        state.current_user_message = None  # clear it after adding
-        
+    user_message_text = state.current_user_message  # get the latest user message
+    if not user_message_text:
+        logger.warning("No current_user_message set in state")
+        return ""
+
+
+    state.add_user_message(user_message_text)
     state.add_agent_message(generation_text)
 
     state.generation = generation_text

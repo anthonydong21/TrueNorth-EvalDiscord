@@ -43,9 +43,6 @@ class CitedSource(BaseModel):
 
 # Define agent state as a Pydantic model
 class ChatState(BaseModel):
-    '''
-    
-    '''
     snowflake: str
 
     question: str = ""
@@ -64,9 +61,6 @@ class ChatState(BaseModel):
     current_try: int = 0
 
     def add_user_message(self, content: str):
-        '''
-        variable name "content" ^ expecting string
-        '''
         self.messages.append(HumanMessage(content=content))
 
     def add_agent_message(self, content: str):

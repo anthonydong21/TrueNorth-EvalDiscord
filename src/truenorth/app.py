@@ -160,9 +160,9 @@ async def stream_workflow(
 
     state = get_state(snowflake)
 
-    state.add_user_message(question)
+    state.add_user_message(user_text)
 
-    summarize_history_if_long(state, model_name, model_provider, call_llm_fn=call_llm)
+    summarize_history_if_long(state, model_name, model_provider)
 
     messages = build_messages_for_llm(state, question)
 
@@ -216,9 +216,9 @@ async def stream_workflow(
     # This replaces the entire block of manual metadata extraction
     citations, renumbered_response_text = CitationManager.resolve_citations(final_state)
 
-    state.add_agent_message(renumbered_response_text)
+    state.add_agent_message(answer)
     # Yield final result
-    result = {"type": "result", "response": renumbered_response_text, "citations": citations, "conversation_id": snowflake}
+    result = {"type": "result", "response": renumbered_response_text, "citations": citations, "conversation_id": "snowflake"}
     yield f"data: {json.dumps(result)}\n\n"
     yield "data: [DONE]\n\n"
 
@@ -239,12 +239,7 @@ async def invoke_llm(
         agent = workflow.compile()
 
         state = get_state(snowflake)
-        
-        state.metadata.update({
-            "snowflake": snowflake,
-            "model_name": model_name,
-            "model_provider": model_provider,
-        })
+
         state.add_user_message(question)
         summarize_history_if_long(state, model_name, model_provider,call_llm_fn=call_llm)
         messages = build_messages_for_llm(state, question)
@@ -310,9 +305,9 @@ async def stream_chat_response(request: Request):
         raise HTTPException(status_code=400, detail="Invalid JSON body")
 
     return StreamingResponse(
-        stream_workflow(question, snowflake),
-        media_type="text/event-stream"
-    )
+    stream_workflow(input_data.question, input_data.snowflake),
+    media_type="text/event-stream"
+)
 
 
 @app.get("/health")

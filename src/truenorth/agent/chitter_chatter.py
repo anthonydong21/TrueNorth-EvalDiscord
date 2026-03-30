@@ -6,7 +6,7 @@ from truenorth.agent.state import ChatState, show_agent_reasoning
 from truenorth.utils.llm import call_llm
 from truenorth.utils.logging import get_caller_logger
 from truenorth.utils.metaprompt import goals_as_str, system_relevant_scope
-from truenorth.agent.state import ChatState, show_agent_reasoning, summarize_history_if_long ,build_messages_for_llm, get_conversation
+from truenorth.agent.state import ChatState, show_agent_reasoning, summarize_history_if_long ,build_messages_for_llm, get_conversation, summarize_history_if_long
 logger = get_caller_logger()
 
 # Prepare template

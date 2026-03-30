@@ -65,18 +65,13 @@ intents = discord.Intents.default()
 intents.message_content = True  
 intents.members = True
 
-async def query_truenorth(user_id: str, question: str):
+def query_truenorth(user_id: str, question: str):
     payload = {"snowflake": user_id, "question": question}
-
-    timeout = aiohttp.ClientTimeout(total=60)
     try:
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(API_URL, json=payload) as resp:
-                if resp.status != 200:
-                    print(f"TrueNorth API error: {resp.status}")
-                    return None
-                return await resp.json()
-    except Exception as e:
+        response = requests.post(API_URL, json=payload)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
         print(f"Cannot contact TrueNorth: {e}")
         return None
         
@@ -107,7 +102,7 @@ async def raise_exception(ctx):
 async def ask_truenorth(ctx, *, question):
     await ctx.send("Thinking...")
     user_id = str(ctx.author.id)
-    data = await query_truenorth(user_id, question)
+    data = query_truenorth(user_id, question)
     if not data:
         await ctx.send("Sorry, I could not reach the TrueNorth API.")
         return
@@ -125,7 +120,7 @@ async def ask_truenorth(ctx, *, question):
 async def ask_gemini(ctx, *, question):
     await ctx.send("Thinking with TrueNorth...")
     user_id = str(ctx.author.id)
-    data = await query_truenorth(user_id, question)
+    data = query_truenorth(user_id, question)
     if not data:
         await ctx.send("Sorry, I could not reach the TrueNorth API.")
         return
@@ -144,7 +139,7 @@ async def ask_slash(interaction: discord.Interaction, question: str):
     await interaction.followup.send("Thinking...")
 
     user_id = str(interaction.user.id)
-    data = await query_truenorth(user_id, question)
+    data = query_truenorth(user_id, question)
     if not data:
         await interaction.followup.send("Sorry, TrueNorth is not responding right now.")
         return
